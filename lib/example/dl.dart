@@ -1,35 +1,81 @@
-// import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
-//
-// Future<void> downloadVideo(String videoUrl) async {
-//   var ytExplode = yt.YoutubeExplode();
-//
-//   try {
-//     var video = await ytExplode.videos.get(videoUrl);
-//
-//     // Get the highest quality stream for the video
-//     var streamInfo = video.audioStreams.getBest();
-//
-//     // Set the file path where you want to save the downloaded video
-//     var filePath = 'downloaded_video.${streamInfo.container.name}';
-//
-//     // Open a file for writing
-//     var file = File(filePath);
-//
-//     // Open a stream to the video's content
-//     var videoStream = await ytExplode.videos.streamsClient.get(streamInfo);
-//
-//     // Write the video stream to the file
-//     await file.writeAsBytes(await videoStream.bytes.toList());
-//
-//     print('Video downloaded successfully.');
-//   } catch (e) {
-//     print('Error downloading video: $e');
-//   } finally {
-//     ytExplode.close();
-//   }
-// }
-//
-// void main() {
-//   var videoUrl = 'https://youtu.be/YMqYcoc-TDU?si=mEgeKkPHt8e0PV8n';
-//   downloadVideo(videoUrl);
-// }
+//TODO: Fixing the console printing.
+
+import 'dart:async';
+import 'dart:io';
+
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+
+// Initialize the YoutubeExplode instance.
+final yt = YoutubeExplode();
+
+Future<void> main() async {
+  stdout.writeln('Type the video id or url: ');
+
+  final url = stdin.readLineSync()!.trim();
+
+  // Save the video to the download directory.
+  Directory('downloads').createSync();
+
+  // Download the video.
+  await download(url);
+
+  yt.close();
+  exit(0);
+}
+
+Future<void> download(String id) async {
+  // Get video metadata.
+  final video = await yt.videos.get(id);
+
+  // Get the video manifest.
+  final manifest = await yt.videos.streamsClient.getManifest(id);
+  final streams = manifest.audioOnly;
+
+  // Get the audio track with the highest bitrate.
+  final audio = streams.withHighestBitrate();
+  final audioStream = yt.videos.streamsClient.get(audio);
+
+  // Compose the file name removing the unallowed characters in windows.
+  final fileName = '${video.title}.${audio.container.name}'
+      .replaceAll(r'\', '')
+      .replaceAll('/', '')
+      .replaceAll('*', '')
+      .replaceAll('?', '')
+      .replaceAll('"', '')
+      .replaceAll('<', '')
+      .replaceAll('>', '')
+      .replaceAll(':', '')
+      .replaceAll('|', '');
+  final file = File('downloads/$fileName');
+
+  // Delete the file if exists.
+  if (file.existsSync()) {
+    file.deleteSync();
+  }
+
+  // Open the file in writeAppend.
+  final output = file.openWrite(mode: FileMode.writeOnlyAppend);
+
+  // Track the file download status.
+  final len = audio.size.totalBytes;
+  var count = 0;
+
+  // Create the message and set the cursor position.
+  final msg = 'Downloading ${video.title}.${audio.container.name}';
+  stdout.writeln(msg);
+
+  // Listen for data received.
+  await for (final data in audioStream) {
+    // Keep track of the current downloaded data.
+    count += data.length;
+
+    // Calculate the current progress.
+    final progress = ((count / len) * 100).toStringAsFixed(2);
+
+    print(progress);
+
+    // Write to file.
+    output.add(data);
+  }
+  await output.close();
+}

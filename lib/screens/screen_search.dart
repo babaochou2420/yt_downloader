@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:yt_downloader/screens/screen_query.dart';
+import 'package:yt_downloader/service/service_download.dart';
 
 import '../models/query.dart';
 import '../utils/logger.dart';
@@ -29,6 +31,18 @@ class _ScreenSearchState extends State<ScreenSearch> {
   String? globalVideoUrl;
   Function(int)? updateBadgeCount;
   int downloadCount = 0;
+  late Box<dynamic> queryBox;
+
+  @override
+  void initState() {
+    super.initState();
+    openHiveBoxes();
+  }
+
+  Future<void> openHiveBoxes() async {
+    queryBox = await Hive.openBox('queries');
+    // Open other boxes as needed
+  }
 
   void _searchVideo() async {
     var videoUrl = _urlController.text.trim();
@@ -104,17 +118,18 @@ class _ScreenSearchState extends State<ScreenSearch> {
   }
 
   Widget downloadButton() {
-    var mediaQuery = Query.fromVideo(video!);
-
     return ElevatedButton(
       onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                ScreenQuery(videoQueries: [Query.fromVideo(video!)]),
-          ),
-        );
+        DownloadService downloadService = DownloadService();
+
+        // Read video info
+        var query = Query.fromVideo(video!);
+        // Start download the media
+        downloadService.downloadVideo(query);
+        // Add to local storage
+        queryBox.put(query.queryId, query.toJson());
+
+        logger.i('Added video to download query. ');
       },
       child: Text('Download Video'),
     );

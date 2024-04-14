@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:yt_downloader/views/view_navigation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import './screens/screen_search.dart';
-import './screens/screen_query.dart'; // Import your ScreenQuery widget
+import './screens/screen_query.dart';
+import 'models/query.dart'; // Import your ScreenQuery widget
 
-void main() {
+void main() async {
+  await Hive.initFlutter();
+
   runApp(MyApp());
 }
 
